@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusMate - 커스텀 과목 공부 타이머</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js for Statistics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .progress-ring-circle {
+      transition: stroke-dashoffset 0.35s ease-in-out;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-full font-sans transition-colors duration-300 flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+          <i data-lucide="timer" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">FocusMate</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">맞춤형 과목 공부 도우미</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div class="hidden sm:flex items-center space-x-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-3.5 py-1.5 rounded-full text-xs font-semibold border border-indigo-100 dark:border-indigo-900">
+          <i data-lucide="target" class="w-4 h-4 text-indigo-500"></i>
+          <span>목표: <span id="headerGoalDisplay">4시간</span></span>
+        </div>
+
+        <button id="themeToggleBtn" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
+          <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
+          <i data-lucide="sun" class="w-5 h-5 hidden dark:block text-amber-400"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Column: Main Timer & Subject Selector -->
+    <section class="lg:col-span-7 flex flex-col gap-6">
+
+      <!-- Subject Picker Bar & Manager Button -->
+      <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          
+          <!-- Mode Tabs -->
+          <div class="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-xs sm:text-sm font-medium overflow-x-auto">
+            <button id="modePomoBtn" class="mode-btn flex-1 px-3 py-1.5 rounded-lg transition-all bg-white dark:bg-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400 font-bold" onclick="setTimerMode('pomo')">
+              뽀모도로 (25분)
+            </button>
+            <button id="modeLongBtn" class="mode-btn flex-1 px-3 py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400" onclick="setTimerMode('long')">
+              긴 집중 (50분)
+            </button>
+            <button id="modeBreakBtn" class="mode-btn flex-1 px-3 py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400" onclick="setTimerMode('break')">
+              휴식 (5분)
+            </button>
+            <button id="modeCustomBtn" class="mode-btn flex-1 px-3 py-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-400" onclick="openCustomModal()">
+              직접 설정
+            </button>
+          </div>
+
+          <!-- Subject Selection Dropdown & Add Button -->
+          <div class="flex items-center space-x-2">
+            <select id="subjectSelect" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer text-slate-700 dark:text-slate-200">
+              <!-- Dynamically Populated Subjects -->
+            </select>
+
+            <button onclick="openSubjectModal()" class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/60 hover:bg-indigo-100 transition flex items-center space-x-1 text-xs font-semibold" title="과목 관리 및 추가">
+              <i data-lucide="folder-plus" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">과목 관리</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- CENTER: Big Circular Timer -->
+      <div class="bg-white dark:bg-slate-800/80 rounded-3xl p-8 shadow-xl shadow-indigo-500/5 border border-slate-200/80 dark:border-slate-700/60 flex flex-col items-center justify-center relative">
+
+        <!-- Status Badge -->
+        <div id="statusBadge" class="mb-4 px-4 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span id="statusText">집중 시간</span>
+        </div>
+
+        <!-- Circular Progress Bar Container -->
+        <div class="relative w-64 h-64 sm:w-80 sm:h-80 my-2 flex items-center justify-center">
+          <svg class="w-full h-full" viewBox="0 0 100 100">
+            <circle
+              class="text-slate-100 dark:text-slate-700/50 stroke-current"
+              stroke-width="6"
+              cx="50"
+              cy="50"
+              r="44"
+              fill="transparent"
+            ></circle>
+            <circle
+              id="progressRing"
+              class="text-indigo-600 dark:text-indigo-400 progress-ring-circle stroke-current"
+              stroke-width="6"
+              stroke-linecap="round"
+              cx="50"
+              cy="50"
+              r="44"
+              fill="transparent"
+              stroke-dasharray="276.46"
+              stroke-dashoffset="0"
+            ></circle>
+          </svg>
+
+          <!-- Clock Text in Center -->
+          <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span id="timeDisplay" class="text-5xl sm:text-7xl font-extrabold tracking-tight font-mono text-slate-800 dark:text-slate-50 select-none">
+              25:00
+            </span>
+            <span id="currentTaskLabel" class="text-xs sm:text-sm text-slate-400 dark:text-slate-400 mt-2 font-semibold max-w-[200px] truncate px-2">
+              📐 수학 공부 중
+            </span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center space-x-4 mt-6">
+          <button id="resetBtn" onclick="resetTimer()" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition duration-200 active:scale-95" title="초기화">
+            <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+          </button>
+
+          <button id="startPauseBtn" onclick="toggleTimer()" class="px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white font-bold text-lg shadow-lg shadow-indigo-500/30 flex items-center space-x-3 transition duration-200 active:scale-95">
+            <i id="startPauseIcon" data-lucide="play" class="w-7 h-7 fill-current"></i>
+            <span id="startPauseText">시작하기</span>
+          </button>
+
+          <button id="skipBtn" onclick="completeSession()" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition duration-200 active:scale-95" title="세션 완료 기록">
+            <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Quick Session Memo -->
+      <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-3">
+        <i data-lucide="file-text" class="w-5 h-5 text-indigo-500 flex-shrink-0"></i>
+        <input type="text" id="sessionMemoInput" placeholder="세부 학습 메모 작성 (예: 2단원 핵심 유형 10문제 풀기)" class="w-full bg-transparent text-sm focus:outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400">
+      </div>
+
+    </section>
+
+    <!-- Right Column: Goal, Ambient Sound, Charts & Logs -->
+    <section class="lg:col-span-5 flex flex-col gap-6">
+
+      <!-- Today's Study Progress Card -->
+      <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-base font-bold flex items-center space-x-2">
+            <i data-lucide="award" class="w-5 h-5 text-amber-500"></i>
+            <span>오늘의 총 집중 시간</span>
+          </h2>
+          <button onclick="openGoalModal()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">목표 변경</button>
+        </div>
+
+        <div class="flex items-baseline space-x-2 mb-3">
+          <span id="totalStudyTimeDisplay" class="text-3xl font-black text-slate-800 dark:text-slate-100 font-mono">00:00:00</span>
+          <span class="text-xs text-slate-400">달성</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs font-semibold text-slate-500">
+            <span>목표 달성률</span>
+            <span id="goalPercentDisplay">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+            <div id="goalProgressBar" class="bg-gradient-to-r from-indigo-500 to-sky-400 h-full rounded-full transition-all duration-500 w-0"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ambient Sound Player -->
+      <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-base font-bold flex items-center space-x-2">
+            <i data-lucide="headphones" class="w-5 h-5 text-sky-500"></i>
+            <span>집중 백색소음</span>
+          </h2>
+          <span id="soundActiveBadge" class="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-400">꺼짐</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <button onclick="toggleAmbientSound('rain')" id="sound-rain" class="sound-btn flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+            <div class="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-500">
+              <i data-lucide="cloud-rain" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold">빗소리</span>
+          </button>
+
+          <button onclick="toggleAmbientSound('cafe')" id="sound-cafe" class="sound-btn flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+            <div class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-500">
+              <i data-lucide="coffee" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold">잔잔한 카페</span>
+          </button>
+
+          <button onclick="toggleAmbientSound('library')" id="sound-library" class="sound-btn flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+            <div class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500">
+              <i data-lucide="book-open" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold">도서관 소음</span>
+          </button>
+
+          <button onclick="toggleAmbientSound('waves')" id="sound-waves" class="sound-btn flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+            <div class="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-500">
+              <i data-lucide="waves" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs font-semibold">파도 소리</span>
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-3 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+          <i data-lucide="volume-2" class="w-4 h-4 text-slate-400"></i>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.5" oninput="changeAmbientVolume(this.value)" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+        </div>
+      </div>
+
+      <!-- Subject Chart & Recent Logs -->
+      <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex-1 flex flex-col">
+        <h2 class="text-base font-bold mb-3 flex items-center space-x-2">
+          <i data-lucide="pie-chart" class="w-5 h-5 text-violet-500"></i>
+          <span>과목별 학습 통계</span>
+        </h2>
+
+        <!-- Chart Container -->
+        <div class="relative w-full h-44 flex items-center justify-center">
+          <canvas id="subjectChart"></canvas>
+          <div id="noDataText" class="absolute inset-0 flex items-center justify-center text-xs text-slate-400">
+            기록된 공부 시간이 없습니다.
+          </div>
+        </div>
+
+        <!-- Session Logs -->
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">오늘의 공부 일지</h3>
+          <ul id="sessionLogList" class="space-y-2 max-h-32 overflow-y-auto pr-1 text-xs">
+            <li class="text-slate-400 text-center py-2">완료된 학습 기록이 없습니다.</li>
+          </ul>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: Subject Management & Add Modal -->
+  <div id="subjectModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700">
+      
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <i data-lucide="folder-kanban" class="w-5 h-5 text-indigo-500"></i>
+          과목 관리 및 추가
+        </h3>
+        <button onclick="closeSubjectModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form for New / Edit Subject -->
+      <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 mb-5 space-y-3">
+        <h4 id="subjectFormTitle" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">새 과목 추가하기</h4>
+        <input type="hidden" id="editSubjectId" value="">
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <!-- Emoji Picker Input -->
+          <div class="col-span-1">
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">아이콘(Emoji)</label>
+            <input type="text" id="subjectEmojiInput" maxlength="2" value="📖" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          <!-- Name Input -->
+          <div class="col-span-2">
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">과목명</label>
+            <input type="text" id="subjectNameInput" placeholder="예: 탐구영역, 자바스크립트" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100">
+          </div>
+        </div>
+
+        <!-- Color Picker -->
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-500 mb-1">과목 테마 색상</label>
+          <div class="flex items-center space-x-2">
+            <input type="color" id="subjectColorInput" value="#6366f1" class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent">
+            <span class="text-xs text-slate-400 font-mono" id="colorHexText">#6366f1</span>
+          </div>
+        </div>
+
+        <div class="flex space-x-2 pt-1">
+          <button id="cancelEditBtn" onclick="resetSubjectForm()" class="hidden flex-1 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50">취소</button>
+          <button onclick="saveSubject()" class="flex-1 py-2 text-xs font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/20">저장하기</button>
+        </div>
+      </div>
+
+      <!-- Existing Subject List -->
+      <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">등록된 과목 목록</h4>
+      <div id="manageSubjectList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+        <!-- Dynamic list of registered subjects -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: Custom Time Modal -->
+  <div id="customModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-xs w-full shadow-2xl border border-slate-200 dark:border-slate-700">
+      <h3 class="text-base font-bold mb-4 text-slate-800 dark:text-slate-100">사용자 정의 타이머</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">분 (Minutes)</label>
+          <input type="number" id="customMinutesInput" min="1" max="180" value="40" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+      </div>
+      <div class="flex space-x-2 mt-6">
+        <button onclick="closeCustomModal()" class="flex-1 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">취소</button>
+        <button onclick="applyCustomTime()" class="flex-1 py-2 text-xs font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/20">적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Goal Setting Modal -->
+  <div id="goalModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-xs w-full shadow-2xl border border-slate-200 dark:border-slate-700">
+      <h3 class="text-base font-bold mb-4 text-slate-800 dark:text-slate-100">오늘의 목표 시간</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">목표 시간 (Hours)</label>
+          <input type="number" id="goalHoursInput" min="1" max="24" value="4" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+      </div>
+      <div class="flex space-x-2 mt-6">
+        <button onclick="closeGoalModal()" class="flex-1 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">취소</button>
+        <button onclick="saveGoalHours()" class="flex-1 py-2 text-xs font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/20">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic JS -->
+  <script>
+    // Initial Subjects State
+    const defaultSubjects = [
+      { id: 'sub_math', name: '수학', emoji: '📐', color: '#3b82f6', minutes: 0 },
+      { id: 'sub_english', name: '영어', emoji: '🔤', color: '#10b981', minutes: 0 },
+      { id: 'sub_korean', name: '국어', emoji: '📖', color: '#f59e0b', minutes: 0 },
+      { id: 'sub_coding', name: '코딩', emoji: '💻', color: '#8b5cf6', minutes: 0 },
+      { id: 'sub_general', name: '자유공부', emoji: '✏️', color: '#6b7280', minutes: 0 }
+    ];
+
+    // Main App State
+    let state = {
+      subjects: [...defaultSubjects],
+      selectedSubjectId: 'sub_math',
+      isRunning: false,
+      mode: 'pomo', // 'pomo', 'long', 'break', 'custom'
+      totalSeconds: 25 * 60,
+      remainingSeconds: 25 * 60,
+      intervalId: null,
+      goalHours: 4,
+      logs: []
+    };
+
+    // Elements
+    const timeDisplay = document.getElementById('timeDisplay');
+    const startPauseBtn = document.getElementById('startPauseBtn');
+    const startPauseIcon = document.getElementById('startPauseIcon');
+    const startPauseText = document.getElementById('startPauseText');
+    const progressRing = document.getElementById('progressRing');
+    const subjectSelect = document.getElementById('subjectSelect');
+    const statusText = document.getElementById('statusText');
+    const currentTaskLabel = document.getElementById('currentTaskLabel');
+    const totalStudyTimeDisplay = document.getElementById('totalStudyTimeDisplay');
+    const goalProgressBar = document.getElementById('goalProgressBar');
+    const goalPercentDisplay = document.getElementById('goalPercentDisplay');
+    const headerGoalDisplay = document.getElementById('headerGoalDisplay');
+    const sessionLogList = document.getElementById('sessionLogList');
+    const sessionMemoInput = document.getElementById('sessionMemoInput');
+
+    const ringRadius = 44;
+    const ringCircumference = 2 * Math.PI * ringRadius;
+
+    // Web Audio Variables
+    let audioCtx = null;
+    let activeAmbient = null;
+    let ambientGainNode = null;
+    let ambientSourceNode = null;
+    let subjectChart = null;
+
+    window.onload = function() {
+      lucide.createIcons();
+      loadStoredData();
+      renderSubjectDropdown();
+      initChart();
+      updateDisplay();
+
+      // Subject select event listener
+      subjectSelect.addEventListener('change', (e) => {
+        state.selectedSubjectId = e.target.value;
+        updateStatusLabel();
+      });
+
+      // Dark Mode toggle
+      document.getElementById('themeToggleBtn').addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+      });
+
+      // Color picker hex listener
+      document.getElementById('subjectColorInput').addEventListener('input', (e) => {
+        document.getElementById('colorHexText').textContent = e.target.value;
+      });
+    };
+
+    // Load LocalStorage Data
+    function loadStoredData() {
+      const savedSubjects = localStorage.getItem('focusmate_subjects');
+      if (savedSubjects) {
+        try { state.subjects = JSON.parse(savedSubjects); } catch(e){}
+      }
+      const savedGoal = localStorage.getItem('focusmate_goal');
+      if (savedGoal) {
+        state.goalHours = parseInt(savedGoal, 10);
+        headerGoalDisplay.textContent = `${state.goalHours}시간`;
+      }
+    }
+
+    function saveSubjectsToStorage() {
+      localStorage.setItem('focusmate_subjects', JSON.stringify(state.subjects));
+    }
+
+    // Render Subject Selector Dropdown
+    function renderSubjectDropdown() {
+      subjectSelect.innerHTML = state.subjects.map(sub => 
+        `<option value="${sub.id}" ${sub.id === state.selectedSubjectId ? 'selected' : ''}>
+          ${sub.emoji} ${sub.name}
+        </option>`
+      ).join('');
+
+      if (!state.subjects.some(s => s.id === state.selectedSubjectId) && state.subjects.length > 0) {
+        state.selectedSubjectId = state.subjects[0].id;
+      }
+      updateStatusLabel();
+    }
+
+    function getSelectedSubject() {
+      return state.subjects.find(s => s.id === state.selectedSubjectId) || state.subjects[0];
+    }
+
+    function updateStatusLabel() {
+      const currentSub = getSelectedSubject();
+      if (state.mode === 'break') {
+        statusText.textContent = '휴식 시간';
+        currentTaskLabel.textContent = '☕ 편안하게 휴식을 취하세요';
+      } else {
+        if (currentSub) {
+          statusText.textContent = `집중 시간 (${currentSub.name})`;
+          currentTaskLabel.textContent = `${currentSub.emoji} ${currentSub.name} 공부 중`;
+        }
+      }
+    }
+
+    // Timer Logic
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      if (h > 0) {
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function updateDisplay() {
+      timeDisplay.textContent = formatTime(state.remainingSeconds);
+
+      const progressRatio = state.remainingSeconds / state.totalSeconds;
+      const offset = ringCircumference - (progressRatio * ringCircumference);
+      progressRing.style.strokeDasharray = `${ringCircumference}`;
+      progressRing.style.strokeDashoffset = offset;
+
+      document.title = `${formatTime(state.remainingSeconds)} - FocusMate`;
+    }
+
+    function toggleTimer() {
+      if (state.isRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      if (state.isRunning) return;
+      state.isRunning = true;
+
+      startPauseText.textContent = '일시정지';
+      startPauseIcon.setAttribute('data-lucide', 'pause');
+      lucide.createIcons();
+
+      state.intervalId = setInterval(() => {
+        if (state.remainingSeconds > 0) {
+          state.remainingSeconds--;
+          updateDisplay();
+        } else {
+          pauseTimer();
+          playFinishChime();
+          completeSession(true);
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      state.isRunning = false;
+      clearInterval(state.intervalId);
+
+      startPauseText.textContent = '시작하기';
+      startPauseIcon.setAttribute('data-lucide', 'play');
+      lucide.createIcons();
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      state.remainingSeconds = state.totalSeconds;
+      updateDisplay();
+    }
+
+    function completeSession(autoCompleted = false) {
+      pauseTimer();
+      const elapsedSeconds = state.totalSeconds - state.remainingSeconds;
+
+      if (elapsedSeconds >= 60 || autoCompleted) {
+        const completedMins = Math.max(1, Math.round(elapsedSeconds / 60));
+        const currentSub = getSelectedSubject();
+
+        if (state.mode !== 'break' && currentSub) {
+          currentSub.minutes = (currentSub.minutes || 0) + completedMins;
+          saveSubjectsToStorage();
+
+          const memo = sessionMemoInput.value.trim() || `${currentSub.name} 집중 학습`;
+          state.logs.unshift({
+            id: Date.now(),
+            subjectName: currentSub.name,
+            emoji: currentSub.emoji,
+            memo: memo,
+            minutes: completedMins,
+            timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+
+          sessionMemoInput.value = '';
+          updateStatsAndLogs();
+        }
+      }
+      resetTimer();
+    }
+
+    function setTimerMode(mode) {
+      pauseTimer();
+      state.mode = mode;
+
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'dark:bg-slate-800', 'shadow-sm', 'text-indigo-600', 'dark:text-indigo-400', 'font-bold');
+        btn.classList.add('text-slate-600', 'dark:text-slate-400');
+      });
+
+      let targetBtn = null;
+      if (mode === 'pomo') {
+        state.totalSeconds = 25 * 60;
+        targetBtn = document.getElementById('modePomoBtn');
+      } else if (mode === 'long') {
+        state.totalSeconds = 50 * 60;
+        targetBtn = document.getElementById('modeLongBtn');
+      } else if (mode === 'break') {
+        state.totalSeconds = 5 * 60;
+        targetBtn = document.getElementById('modeBreakBtn');
+      }
+
+      if (targetBtn) {
+        targetBtn.classList.add('bg-white', 'dark:bg-slate-800', 'shadow-sm', 'text-indigo-600', 'dark:text-indigo-400', 'font-bold');
+      }
+
+      state.remainingSeconds = state.totalSeconds;
+      updateStatusLabel();
+      updateDisplay();
+    }
+
+    // SUBJECT MANAGEMENT (ADD / EDIT / DELETE)
+    function openSubjectModal() {
+      renderSubjectManageList();
+      resetSubjectForm();
+      document.getElementById('subjectModal').classList.remove('hidden');
+    }
+
+    function closeSubjectModal() {
+      document.getElementById('subjectModal').classList.add('hidden');
+    }
+
+    function renderSubjectManageList() {
+      const listContainer = document.getElementById('manageSubjectList');
+      if (state.subjects.length === 0) {
+        listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">등록된 과목이 없습니다.</p>`;
+        return;
+      }
+
+      listContainer.innerHTML = state.subjects.map(sub => `
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full" style="background-color: ${sub.color};"></span>
+            <span class="text-base">${sub.emoji}</span>
+            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">${sub.name}</span>
+            <span class="text-[10px] text-slate-400">(${sub.minutes || 0}분 기록)</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button onclick="editSubject('${sub.id}')" class="p-1 text-slate-400 hover:text-indigo-500 rounded-lg">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <button onclick="deleteSubject('${sub.id}')" class="p-1 text-slate-400 hover:text-rose-500 rounded-lg">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function saveSubject() {
+      const editId = document.getElementById('editSubjectId').value;
+      const emoji = document.getElementById('subjectEmojiInput').value.trim() || '📖';
+      const name = document.getElementById('subjectNameInput').value.trim();
+      const color = document.getElementById('subjectColorInput').value;
+
+      if (!name) {
+        alert('과목명을 입력해주세요.');
+        return;
+      }
+
+      if (editId) {
+        // Edit existing
+        const sub = state.subjects.find(s => s.id === editId);
+        if (sub) {
+          sub.name = name;
+          sub.emoji = emoji;
+          sub.color = color;
+        }
+      } else {
+        // Create new
+        const newSub = {
+          id: 'sub_' + Date.now(),
+          name: name,
+          emoji: emoji,
+          color: color,
+          minutes: 0
+        };
+        state.subjects.push(newSub);
+        state.selectedSubjectId = newSub.id;
+      }
+
+      saveSubjectsToStorage();
+      renderSubjectDropdown();
+      renderSubjectManageList();
+      resetSubjectForm();
+      updateStatsAndLogs();
+    }
+
+    function editSubject(id) {
+      const sub = state.subjects.find(s => s.id === id);
+      if (!sub) return;
+
+      document.getElementById('editSubjectId').value = sub.id;
+      document.getElementById('subjectEmojiInput').value = sub.emoji;
+      document.getElementById('subjectNameInput').value = sub.name;
+      document.getElementById('subjectColorInput').value = sub.color;
+      document.getElementById('colorHexText').textContent = sub.color;
+
+      document.getElementById('subjectFormTitle').textContent = '과목 수정하기';
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+    }
+
+    function deleteSubject(id) {
+      if (state.subjects.length <= 1) {
+        alert('최소 1개 이상의 과목이 필요합니다.');
+        return;
+      }
+      state.subjects = state.subjects.filter(s => s.id !== id);
+      if (state.selectedSubjectId === id) {
+        state.selectedSubjectId = state.subjects[0].id;
+      }
+      saveSubjectsToStorage();
+      renderSubjectDropdown();
+      renderSubjectManageList();
+      updateStatsAndLogs();
+    }
+
+    function resetSubjectForm() {
+      document.getElementById('editSubjectId').value = '';
+      document.getElementById('subjectEmojiInput').value = '📖';
+      document.getElementById('subjectNameInput').value = '';
+      document.getElementById('subjectColorInput').value = '#6366f1';
+      document.getElementById('colorHexText').textContent = '#6366f1';
+
+      document.getElementById('subjectFormTitle').textContent = '새 과목 추가하기';
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+    }
+
+    // MODAL CUSTOM & GOAL
+    function openCustomModal() { document.getElementById('customModal').classList.remove('hidden'); }
+    function closeCustomModal() { document.getElementById('customModal').classList.add('hidden'); }
+    function applyCustomTime() {
+      const mins = parseInt(document.getElementById('customMinutesInput').value, 10);
+      if (mins && mins > 0) {
+        pauseTimer();
+        state.mode = 'custom';
+        state.totalSeconds = mins * 60;
+        state.remainingSeconds = mins * 60;
+        updateStatusLabel();
+        updateDisplay();
+      }
+      closeCustomModal();
+    }
+
+    function openGoalModal() { document.getElementById('goalModal').classList.remove('hidden'); }
+    function closeGoalModal() { document.getElementById('goalModal').classList.add('hidden'); }
+    function saveGoalHours() {
+      const h = parseInt(document.getElementById('goalHoursInput').value, 10);
+      if (h && h > 0) {
+        state.goalHours = h;
+        localStorage.setItem('focusmate_goal', h);
+        headerGoalDisplay.textContent = `${h}시간`;
+        updateStatsAndLogs();
+      }
+      closeGoalModal();
+    }
+
+    // STATISTICS & CHART
+    function updateStatsAndLogs() {
+      let totalMins = 0;
+      state.subjects.forEach(s => totalMins += (s.minutes || 0));
+
+      const totalSecs = totalMins * 60;
+      const h = Math.floor(totalSecs / 3600);
+      const m = Math.floor((totalSecs % 3600) / 60);
+      totalStudyTimeDisplay.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+
+      const goalMinutes = state.goalHours * 60;
+      const percent = Math.min(100, Math.round((totalMins / goalMinutes) * 100));
+      goalProgressBar.style.width = `${percent}%`;
+      goalPercentDisplay.textContent = `${percent}%`;
+
+      // Session logs
+      if (state.logs.length === 0) {
+        sessionLogList.innerHTML = `<li class="text-slate-400 text-center py-2">완료된 학습 기록이 없습니다.</li>`;
+      } else {
+        sessionLogList.innerHTML = state.logs.map(log => `
+          <li class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center space-x-2 overflow-hidden">
+              <span class="text-base">${log.emoji}</span>
+              <div class="truncate">
+                <div class="font-semibold text-slate-700 dark:text-slate-200 truncate">${log.memo}</div>
+                <div class="text-[10px] text-slate-400">${log.subjectName} • ${log.timeStr}</div>
+              </div>
+            </div>
+            <span class="font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 ml-2">+${log.minutes}분</span>
+          </li>
+        `).join('');
+      }
+
+      // Chart Update
+      if (subjectChart) {
+        const labels = state.subjects.map(s => s.name);
+        const data = state.subjects.map(s => s.minutes || 0);
+        const colors = state.subjects.map(s => s.color);
+
+        const hasData = data.some(v => v > 0);
+        document.getElementById('noDataText').style.display = hasData ? 'none' : 'flex';
+
+        subjectChart.data.labels = labels;
+        subjectChart.data.datasets[0].data = data;
+        subjectChart.data.datasets[0].backgroundColor = colors;
+        subjectChart.update();
+      }
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('subjectChart').getContext('2d');
+      subjectChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: state.subjects.map(s => s.name),
+          datasets: [{
+            data: state.subjects.map(s => s.minutes || 0),
+            backgroundColor: state.subjects.map(s => s.color),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } }
+            }
+          },
+          cutout: '70%'
+        }
+      });
+      updateStatsAndLogs();
+    }
+
+    // AUDIO SYSTEM (WEB AUDIO API)
+    function initAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function toggleAmbientSound(type) {
+      initAudioContext();
+
+      if (activeAmbient === type) {
+        stopAmbientSound();
+        return;
+      }
+
+      stopAmbientSound();
+      activeAmbient = type;
+
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50/50', 'dark:bg-indigo-950/30'));
+      document.getElementById(`sound-${type}`).classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-50/50', 'dark:bg-indigo-950/30');
+      document.getElementById('soundActiveBadge').textContent = '재생 중';
+      document.getElementById('soundActiveBadge').className = 'text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded font-bold';
+
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      const filter = audioCtx.createBiquadFilter();
+      if (type === 'rain') {
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+      } else if (type === 'cafe') {
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        filter.Q.setValueAtTime(1.0, audioCtx.currentTime);
+      } else if (type === 'library') {
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(350, audioCtx.currentTime);
+      } else if (type === 'waves') {
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(500, audioCtx.currentTime);
+      }
+
+      ambientGainNode = audioCtx.createGain();
+      const currentVol = document.getElementById('volumeSlider').value;
+      ambientGainNode.gain.setValueAtTime(currentVol * 0.15, audioCtx.currentTime);
+
+      whiteNoise.connect(filter);
+      filter.connect(ambientGainNode);
+      ambientGainNode.connect(audioCtx.destination);
+
+      whiteNoise.start();
+      ambientSourceNode = whiteNoise;
+    }
+
+    function stopAmbientSound() {
+      if (ambientSourceNode) {
+        try { ambientSourceNode.stop(); } catch(e){}
+        ambientSourceNode.disconnect();
+        ambientSourceNode = null;
+      }
+      activeAmbient = null;
+
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50/50', 'dark:bg-indigo-950/30'));
+      document.getElementById('soundActiveBadge').textContent = '꺼짐';
+      document.getElementById('soundActiveBadge').className = 'text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-400';
+    }
+
+    function changeAmbientVolume(val) {
+      if (ambientGainNode && audioCtx) {
+        ambientGainNode.gain.setValueAtTime(val * 0.15, audioCtx.currentTime);
+      }
+    }
+
+    function playFinishChime() {
+      initAudioContext();
+      const now = audioCtx.currentTime;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.2);
+      osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.4);
+
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 1.2);
+    }
+  </script>
+</body>
+</html>
